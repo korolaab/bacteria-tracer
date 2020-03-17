@@ -6,10 +6,11 @@ import os # working with os
 from keras.models import load_model # lib for easier NN coding with Tensorflow
 import tensorflow as tf # high level framework for NN
 import numpy as np #matrixes and tensors 
-import cv2 
+import cv2
 import json # JSON lib
 import math # math module 
 from progress_bar import printProgressBar # beautiful progress bar :3
+import csv
 import model 
 import argparse # parsing input argument
 
@@ -53,7 +54,7 @@ def get_centre_of_shapes(mask): # get centre of all finded bacteria on frame
     return coordinates 
 
 
-def video_processing(filename, output_video):
+def video_processing(filename, output_video=None):
     cap = cv2.VideoCapture(filename) #input video file object
     
     if(output_video):
@@ -79,19 +80,31 @@ def video_processing(filename, output_video):
                 cv2.circle(frame, (point[0],point[1]), 3, (255, 0, 0), -1) # draw blue point on frame
             frame[:,:,1]=frame[:,:,1]+segmentation_map*200 # green 
             out.write(frame)
-        coordinate_from_all_frames[str(frame_number)]=coordinates_from_one_frame
+        coordinate_from_all_frames[frame_number]=coordinates_from_one_frame
         printProgressBar(frame_number+1,l,prefix="Progress:",suffix="Complete",length=50) # update of beautiful progress bar :3
     cap.release()
-    if(out_video):
+    if(output_video):
         out.release()
     return coordinate_from_all_frames
-
+def save_csv_files(coord,folder_name): #save as csv files with x:y
+        print("save to " + folder_name)
+        os.mkdir(folder_name) # name folder
+        for frame in range(len(coord)):
+            with open(folder_name+"/%d.csv"%(frame),"w") as f:
+                writer = csv.writer(f,delimiter=':')
+                writer.writerows(coord[frame])
+                
+def save_json_file(coord,filename):
+    print("save " + filename)
+    with open(filename,"w") as f:
+        f.write(json.dumps({"video_filename":args.filename,"frames":coord}))
 
 if __name__ == "__main__": #if you execute this file
     parser = argparse.ArgumentParser(description="Find bacterias coordingates on video.")
     parser.add_argument("--input",action="store",metavar="<path>",required=True,dest="filename", help="input video file")
+    parser.add_argument("--format",action="store", dest="format", default="json", help="Output coordinates format csv or json. JSON is one file with coordinates for each frame. CSV is files with coordinates where each files have coordinates for frame.")
     parser.add_argument("--output",action="store",metavar="<path>",
-   required=True,dest="output_coord_filename",help="output json file")
+   required=True,dest="output_coord_filename",help="output json file or folder for csv files")
     parser.add_argument("--output_video",action="store",dest="output_video_filename", default=None,metavar="<path>",help="ouptut video with marked bacterias")
     
     args=parser.parse_args()
@@ -101,7 +114,9 @@ if __name__ == "__main__": #if you execute this file
     model = load_model('model.h5',custom_objects={'focal_loss': 'mse'})
 
     coord = video_processing(args.filename,args.output_video_filename)
-    with open(args.output_cord_filename,"w") as f:
-        f.write(json.dumps({"video_filename":args.filename,"frames":coord}))
-
+    
+    if(args.format=="json"):
+        save_json_file(coord, args.output_coord_filename)
+    elif(args.format=="csv"):
+        save_csv_files(coord, args.output_coord_filename)
 
