@@ -29,3 +29,5 @@ $ find_coordinates --input={video filename} --output={output json file}\
 ```
 [x,y] is coordinate of one bacteria on frame
 "0" - "m" is number of frame
+## Example
+Example of proccesed [video](https://youtu.be/4pJVfj9q65I).
