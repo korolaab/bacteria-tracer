@@ -6,12 +6,12 @@ import os # working with os
 from keras.models import load_model # lib for easier NN coding with Tensorflow
 import tensorflow as tf # high level framework for NN
 import numpy as np #matrixes and tensors 
-import cv2
+import cv2 # computer vision algorithms
 import json # JSON lib
 import math # math module 
 from progress_bar import printProgressBar # beautiful progress bar :3
-import csv
-import model 
+import csv 
+import model # object with our model 
 import argparse # parsing input argument
 
 def recognize(image): #get mask of bacteria on one frame of video
@@ -76,11 +76,11 @@ def video_processing(filename, output_video=None):
         segmentation_map = recognize(gray_frame) # inference prediction for frame
         coordinates_from_one_frame=get_centre_of_shapes(segmentation_map) # coordinates of bacteria for frame
         if(output_video): # if you want to save video with marked bacterias 
+            #frame[:,:,1]=segmentation_map*255 # green 
             for point in coordinates_from_one_frame:                
                 cv2.circle(frame, (point[0],point[1]), 3, (255, 0, 0), -1) # draw blue point on frame
-            frame[:,:,1]=frame[:,:,1]+segmentation_map*200 # green 
-            out.write(frame)
-        coordinate_from_all_frames[frame_number]=coordinates_from_one_frame
+            out.write(segmentation_map*255)
+        coordinate_from_all_frames[frame_number]=coordinates_from_one_frame # append coordinates 
         printProgressBar(frame_number+1,l,prefix="Progress:",suffix="Complete",length=50) # update of beautiful progress bar :3
     cap.release()
     if(output_video):
@@ -111,7 +111,7 @@ if __name__ == "__main__": #if you execute this file
     
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
-    model = load_model('model.h5',custom_objects={'focal_loss': 'mse'})
+    model = load_model('model_2_Deeper.h5',custom_objects={'focal_loss': 'mse'})
 
     coord = video_processing(args.filename,args.output_video_filename)
     
