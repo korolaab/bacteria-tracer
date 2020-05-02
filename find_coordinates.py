@@ -3,8 +3,8 @@ import warnings
 warnings.filterwarnings("ignore")
 import os # working with os
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # no debug TF info
-from keras.models import load_model # lib for easier NN coding with Tensorflow
 import tensorflow as tf # high level framework for NN
+from tensorflow.keras.models import load_model # lib for easier NN coding with Tensorflow
 import numpy as np #matrixes and tensors 
 import cv2 # computer vision algorithms
 import json # JSON lib
@@ -13,7 +13,7 @@ from progress_bar import printProgressBar # beautiful progress bar :3
 import csv 
 import model # object with our model 
 import argparse # parsing input argument
-
+from random import randrange
 def recognize(image): #get mask of bacteria on one frame of video
     shift = 100 # step for sliding window
     size = 100 # sliding window size
@@ -53,10 +53,25 @@ def get_centre_of_shapes(mask): # get centre of all finded bacteria on frame
         coordinates.append([int(cX/l),int(cY/l)]) # [avg(X), avg(Y)]
     return coordinates 
 
-
+def find_nearest_bacteria(x,y,coordinates):
+    smallest_distance = math.sqrt((x-coordinates[0][0])**2+(y-coordinates[0][1])**2)
+    xs,ys=coordinates[0][0],coordinates[0][1]
+    for i in range(1,len(coordinates)):
+        dist = math.sqrt((x-coordinates[i][0])**2+(y-coordinates[i][1])**2)
+        if (smallest_distance > dist):
+            smallest_distance = dist 
+            xs = coordinates[i][0]
+            ys = coordinates[i][1]
+    return xs,ys
+def track(frame, coordinates,xp,yp):
+    #xp,yp = previous_coordinates[i][0],previous_coordinates[i][1]
+    xn,yn = find_nearest_bacteria(xp,yp,coordinates)
+    cv2.line(frame,(xp,yp),(xn,yn),color=(255,100,100))
+    return xn,yn
 def video_processing(filename, output_video=None):
     cap = cv2.VideoCapture(filename) #input video file object
     
+    xp,yp = 0,0
     if(output_video):
         width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) # original file width
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) # original file height
@@ -65,6 +80,7 @@ def video_processing(filename, output_video=None):
         out = cv2.VideoWriter(output_video,fourcc,fps,(width,height)) # outpur video object
         
     
+    im = np.zeros([height,width,3],dtype=np.uint8)
     coordinate_from_all_frames={} #dictionary where for each frame we will save coordinate of bacteria
     
     l = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) # total number of frames in video
@@ -75,11 +91,16 @@ def video_processing(filename, output_video=None):
         gray_frame = frame[:,:,0] # converting RGB -> Grayspace
         segmentation_map = recognize(gray_frame) # inference prediction for frame
         coordinates_from_one_frame=get_centre_of_shapes(segmentation_map) # coordinates of bacteria for frame
-        if(output_video): # if you want to save video with marked bacterias 
-            #frame[:,:,1]=segmentation_map*255 # green 
-            for point in coordinates_from_one_frame:                
-                cv2.circle(frame, (point[0],point[1]), 3, (255, 0, 0), -1) # draw blue point on frame
-            out.write(segmentation_map*255)
+        if(output_video and frame_number==0):
+            index = randrange(0,len(coordinates_from_one_frame)-1)
+            xp,yp = coordinates_from_one_frame[index][0],coordinates_from_one_frame[index][1]
+        if(output_video and frame_number>1): # if you want to save video with marked bacterias 
+            
+           # for point in coordinates_from_one_frame:                
+            cv2.circle(im, (xp,yp), 2, (255, 0, 0), -1) # draw blue point on frame
+            xp,yp=track(im,coordinates_from_one_frame,xp,yp)   
+            out.write(im)
+            
         coordinate_from_all_frames[frame_number]=coordinates_from_one_frame # append coordinates 
         printProgressBar(frame_number+1,l,prefix="Progress:",suffix="Complete",length=50) # update of beautiful progress bar :3
     cap.release()
